@@ -70,11 +70,13 @@ class Config:
 
     @property
     def server_host(self) -> str:
-        return self._config["server"]["host"]
+        import os
+        return os.environ.get("HOST", self._config["server"]["host"])
 
     @property
     def server_port(self) -> int:
-        return self._config["server"]["port"]
+        import os
+        return int(os.environ.get("PORT", self._config["server"]["port"]))
 
     @property
     def debug_enabled(self) -> bool:
