@@ -2,10 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (Playwright + Rclone)
+# Install system dependencies (Playwright + Rclone + Utilities)
 RUN apt-get update && apt-get install -y \
     curl \
     unzip \
+    dos2unix \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -39,9 +40,9 @@ RUN playwright install chromium
 # Copy application code
 COPY --chown=user . .
 
-# Copy and setup start script
+# Copy and setup start script (Fix line endings for Windows compatibility)
 COPY --chown=user start.sh .
-RUN chmod +x start.sh
+RUN dos2unix start.sh && chmod +x start.sh
 
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data /app/logs /home/user/.config/rclone && \
