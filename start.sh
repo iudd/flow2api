@@ -28,11 +28,11 @@ if [ -n "$RCLON_CONF" ]; then
     echo "Restoring data from remote..."
     rclone copy infini_dav:flow2api_data /app/data --ignore-existing
     
-    # 启动后台同步进程 (每60秒同步一次)
+    # 启动后台同步进程 (每15分钟同步一次)
     echo "Starting background sync..."
     (
         while true; do
-            sleep 60
+            sleep 900
             # 同步 data 目录到远程
             rclone sync /app/data infini_dav:flow2api_data
         done

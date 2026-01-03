@@ -1,6 +1,8 @@
 """Database storage layer for Flow2API"""
 import aiosqlite
 import json
+import asyncio
+import shutil
 from datetime import datetime
 from typing import Optional, List
 from pathlib import Path
@@ -39,6 +41,23 @@ class Database:
             return any(col[1] == column_name for col in columns)
         except:
             return False
+
+    async def _trigger_remote_sync(self):
+        """Trigger remote sync via rclone (fire and forget)"""
+        # Only trigger if rclone is installed and configured
+        if shutil.which("rclone"):
+            try:
+                # Run rclone sync in background
+                # We use subprocess to run the command without blocking
+                cmd = ["rclone", "sync", "/app/data", "infini_dav:flow2api_data"]
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                # We don't wait for it to finish
+            except Exception as e:
+                print(f"Failed to trigger remote sync: {e}")
 
     async def _ensure_config_rows(self, db, config_dict: dict = None):
         """Ensure all config tables have their default rows
@@ -581,6 +600,9 @@ class Database:
             """, (token_id,))
             await db.commit()
 
+            # Trigger sync
+            await self._trigger_remote_sync()
+
             return token_id
 
     async def get_token(self, token_id: int) -> Optional[Token]:
@@ -645,6 +667,9 @@ class Database:
                 query = f"UPDATE tokens SET {', '.join(updates)} WHERE id = ?"
                 await db.execute(query, params)
                 await db.commit()
+                
+                # Trigger sync
+                await self._trigger_remote_sync()
 
     async def delete_token(self, token_id: int):
         """Delete token and related data"""
@@ -653,6 +678,9 @@ class Database:
             await db.execute("DELETE FROM projects WHERE token_id = ?", (token_id,))
             await db.execute("DELETE FROM tokens WHERE id = ?", (token_id,))
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Project operations
     async def add_project(self, project: Project) -> int:
@@ -664,6 +692,10 @@ class Database:
             """, (project.project_id, project.token_id, project.project_name,
                   project.tool_name, project.is_active))
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
+            
             return cursor.lastrowid
 
     async def get_project_by_id(self, project_id: str) -> Optional[Project]:
@@ -692,6 +724,9 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Task operations
     async def create_task(self, task: Task) -> int:
@@ -898,6 +933,9 @@ class Database:
                 query = f"UPDATE admin_config SET {', '.join(updates)} WHERE id = 1"
                 await db.execute(query, params)
                 await db.commit()
+                
+                # Trigger sync
+                await self._trigger_remote_sync()
 
     async def get_proxy_config(self) -> Optional[ProxyConfig]:
         """Get proxy configuration"""
@@ -918,6 +956,9 @@ class Database:
                 WHERE id = 1
             """, (enabled, proxy_url))
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     async def get_generation_config(self) -> Optional[GenerationConfig]:
         """Get generation configuration"""
@@ -938,6 +979,9 @@ class Database:
                 WHERE id = 1
             """, (image_timeout, video_timeout))
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Request log operations
     async def add_request_log(self, log: RequestLog):
@@ -1108,6 +1152,9 @@ class Database:
                 """, (new_enabled, new_timeout, new_base_url))
 
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Debug config operations
     async def get_debug_config(self) -> 'DebugConfig':
@@ -1162,6 +1209,9 @@ class Database:
                 """, (new_enabled, new_log_requests, new_log_responses, new_mask_token))
 
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Captcha config operations
     async def get_captcha_config(self) -> CaptchaConfig:
@@ -1215,6 +1265,9 @@ class Database:
                 """, (new_method, new_api_key, new_base_url, new_proxy_enabled, new_proxy_url))
 
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
 
     # Plugin config operations
     async def get_plugin_config(self) -> PluginConfig:
@@ -1247,3 +1300,6 @@ class Database:
                 """, (connection_token,))
 
             await db.commit()
+            
+            # Trigger sync
+            await self._trigger_remote_sync()
