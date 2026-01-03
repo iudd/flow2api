@@ -40,10 +40,6 @@ RUN playwright install chromium
 # Copy application code
 COPY --chown=user . .
 
-# Copy and setup start script (Fix line endings for Windows compatibility)
-COPY --chown=user start.sh .
-RUN dos2unix start.sh && chmod +x start.sh
-
 # Create necessary directories and set permissions
 RUN mkdir -p /app/data /app/logs /home/user/.config/rclone && \
     chown -R user:user /app /home/user/.config && \
@@ -60,4 +56,4 @@ ENV HOME=/home/user \
 
 EXPOSE 7860
 
-CMD ["./start.sh"]
+CMD ["python", "boot.py"]
