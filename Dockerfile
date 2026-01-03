@@ -2,8 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Playwright system dependencies (from upstream)
+# Install system dependencies (Playwright + Rclone)
 RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \
@@ -21,26 +23,33 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install rclone
+RUN curl https://rclone.org/install.sh | bash
+
 # Create a non-root user
 RUN useradd -m -u 1000 user
 
-# Install dependencies
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright browser
+RUN playwright install chromium
 
 # Copy application code
 COPY --chown=user . .
 
+# Copy and setup start script
+COPY --chown=user start.sh .
+RUN chmod +x start.sh
+
 # Create necessary directories and set permissions
-RUN mkdir -p /app/data /app/logs && \
-    chown -R user:user /app && \
+RUN mkdir -p /app/data /app/logs /home/user/.config/rclone && \
+    chown -R user:user /app /home/user/.config && \
     chmod -R 777 /app/data /app/logs
 
 # Switch to non-root user
 USER user
-
-# Install Playwright browser (from upstream, run as user)
-RUN playwright install chromium
 
 # Set environment variables
 ENV HOME=/home/user \
@@ -50,4 +59,4 @@ ENV HOME=/home/user \
 
 EXPOSE 7860
 
-CMD ["python", "main.py"]
+CMD ["./start.sh"]
